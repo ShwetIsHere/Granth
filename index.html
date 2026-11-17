@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Granth document viewer" />
+    <title>Granth — Document Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Document navigation">
+        <div class="brand"><span class="brand-mark">G</span><span>granth</span></div>
+        <nav class="library-nav">
+          <a href="#" class="nav-link active"><span class="nav-icon">▤</span>All documents</a>
+          <a href="#" class="nav-link"><span class="nav-icon">☆</span>Starred</a>
+          <a href="#" class="nav-link"><span class="nav-icon">↗</span>Shared with me</a>
+        </nav>
+        <div class="sidebar-heading"><span>COLLECTIONS</span><button aria-label="Add collection">+</button></div>
+        <div class="collections">
+          <a href="#" class="collection"><span class="collection-dot blue"></span>Indian literature <small>12</small></a>
+          <a href="#" class="collection"><span class="collection-dot orange"></span>Research <small>8</small></a>
+          <a href="#" class="collection"><span class="collection-dot green"></span>To read <small>24</small></a>
+        </div>
+        <div class="storage"><div class="storage-label"><span>Storage</span><span>2.4 GB / 5 GB</span></div><div class="storage-bar"><i></i></div></div>
+        <div class="profile"><div class="avatar">S</div><div><strong>Shwet Is Here</strong><span>Personal workspace</span></div><button aria-label="Profile menu">•••</button></div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="breadcrumbs"><a href="#">All documents</a><span>/</span><strong>Gitanjali</strong></div>
+          <div class="top-actions"><button class="icon-button" aria-label="Toggle fullscreen">⛶</button><button class="avatar small">S</button></div>
+        </header>
+
+        <section class="document-header">
+          <div>
+            <div class="eyebrow">POETRY · RABINDRANATH TAGORE</div>
+            <h1>Gitanjali</h1>
+            <p class="document-subtitle">Song Offerings · 1912</p>
+          </div>
+          <div class="document-actions"><button class="secondary-button" id="starButton" aria-pressed="false">☆ <span>Star</span></button><button class="secondary-button">↗ <span>Share</span></button><button class="more-button" aria-label="More document actions">•••</button></div>
+        </section>
+
+        <div class="viewer">
+          <div class="viewer-toolbar">
+            <div class="toolbar-group"><button class="tool-button" id="sidebarToggle" aria-label="Toggle thumbnails">☰</button><span class="divider"></span><button class="tool-button" id="previousPage" aria-label="Previous page">‹</button><div class="page-count"><input id="pageInput" type="number" value="1" min="1" max="12" aria-label="Current page" /><span>/ 12</span></div><button class="tool-button" id="nextPage" aria-label="Next page">›</button></div>
+            <div class="toolbar-group"><button class="tool-button" id="zoomOut" aria-label="Zoom out">−</button><span id="zoomLevel" class="zoom-level">100%</span><button class="tool-button" id="zoomIn" aria-label="Zoom in">+</button><span class="divider"></span><button class="tool-button" aria-label="Download document">⇩</button><button class="tool-button" aria-label="Print document">♧</button></div>
+          </div>
+          <div class="viewer-body">
+            <aside class="thumbnails" id="thumbnails" aria-label="Page thumbnails">
+              <button class="thumbnail active" data-page="1"><span>1</span><div class="thumb-paper"><b>Gitanjali</b><em>Song Offerings</em></div></button>
+              <button class="thumbnail" data-page="2"><span>2</span><div class="thumb-paper lines"></div></button>
+              <button class="thumbnail" data-page="3"><span>3</span><div class="thumb-paper lines"></div></button>
+              <button class="thumbnail" data-page="4"><span>4</span><div class="thumb-paper lines"></div></button>
+            </aside>
+            <div class="page-stage" id="pageStage">
+              <article class="paper" id="paper">
+                <div class="paper-top"><span>GITANJALI</span><span>1</span></div>
+                <div class="cover-content"><div class="cover-rule"></div><p class="cover-kicker">SONG OFFERINGS</p><h2>Gitanjali</h2><p class="cover-author">Rabindranath Tagore</p><p class="cover-year">1912</p><div class="cover-symbol">✦</div></div>
+                <div class="paper-footer">GRANTH DIGITAL LIBRARY</div>
+              </article>
+            </div>
+          </div>
+          <div class="find-bar" id="findBar" hidden><label for="findInput">Find in document</label><input id="findInput" type="search" placeholder="Search text..." /><span id="findResult"></span><button id="closeFind" aria-label="Close search">×</button></div>
+        </div>
+      </main>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
