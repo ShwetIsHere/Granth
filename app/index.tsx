@@ -82,7 +82,7 @@ export default function Home() {
         }
         ListEmptyComponent={searching
           ? <EmptyCard icon="search-outline" title="No matching files" description="Search includes files selected during this session." />
-          : null}
+          : undefined}
         ItemSeparatorComponent={() => <View className="h-2" />}
       />
     </Screen>

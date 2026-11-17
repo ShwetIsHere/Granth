@@ -15,7 +15,7 @@ npx expo install --check
 npm start
 ```
 
-Use the SDK 57 build of Expo Go on Android. If Google Play supplies a different SDK, get the matching Android build from [Expo Go](https://expo.dev/go?sdkVersion=57&platform=android&device=true). Connect the phone and computer to the same Wi-Fi network, then scan Metro's QR code with Expo Go. Use `npm run android` to launch on an already configured Android emulator.
+Use the SDK 58 build of Expo Go on Android. Connect the phone and computer to the same Wi-Fi network, then scan Metro's QR code with Expo Go. If Metro was running before the SDK upgrade, stop it and run `npm start -- --clear` before scanning the new code. Use `npm run android` to launch on an already configured Android emulator.
 
 A local development build is also possible with Android Studio, the Android SDK, and USB debugging. Install `expo-dev-client` with `npx expo install expo-dev-client`, then run `npx expo run:android --device`. Expo Go's development session needs a connection to Metro. An installed release with an embedded bundle can exercise the app without Metro or internet access.
 
@@ -45,8 +45,8 @@ src/
 
 ## Dependencies
 
-- Expo SDK 57, React 19.2, React Native 0.86, and Expo Router for navigation. Constants, Linking, Screens, Safe Area Context, and React DOM satisfy Expo Router integration and peer requirements.
-- NativeWind 4.2.7, Tailwind CSS 3.4, Reanimated 4.5, Worklets 0.10, Babel Preset Expo, and TypeScript 6.
+- Expo SDK 58, React 19.3, React Native 0.88, and Expo Router for navigation. Constants, Linking, Screens, Safe Area Context, and React DOM satisfy Expo Router integration and peer requirements.
+- NativeWind 4.2.7, Tailwind CSS 3.4, Reanimated 4.7, Worklets 0.13, Babel Preset Expo, and TypeScript 6.
 - Zustand 5, Expo SQLite, Expo Document Picker, and Expo File System.
 - Expo Vector Icons, Font, Status Bar, and System UI.
 
@@ -62,4 +62,4 @@ The Browse list represents selected metadata. Reading history and favorites star
 - Slides. PPTX, PPT, and ODP require layout-aware parsing or offline conversion. Fonts, charts, media, and presentation effects may vary by engine.
 - Images and text. Decode large images at a suitable display size and verify BMP support per platform. Read large text files incrementally and use a Markdown renderer for formatted previews.
 
-See Expo's [SDK 57 release notes](https://expo.dev/changelog/sdk-57), [DocumentPicker documentation](https://docs.expo.dev/versions/v57.0.0/sdk/document-picker/), and the [NativeWind installation guide](https://www.nativewind.dev/docs/getting-started/installation).
+See Expo's [SDK 58 release notes](https://expo.dev/changelog/sdk-58), [DocumentPicker documentation](https://docs.expo.dev/versions/v58.0.0/sdk/document-picker/), and the [NativeWind installation guide](https://www.nativewind.dev/docs/getting-started/installation).
