@@ -1,13 +1,16 @@
 import { useRef, useState } from 'react';
-import { Image, Platform, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { File } from 'expo-file-system';
 import { nativeStorage } from '../src/documents/native-storage';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
-import { Action, EmptyCard, Screen, ScreenHeading } from '../src/ui/components';
+import { Action, EmptyCard, IconButton, Screen, ScreenHeading } from '../src/ui/components';
 import { PdfViewer } from '../src/ui/pdf-viewer';
 import { OfficeViewer } from '../src/ui/office-viewer';
+import { ImageViewer } from '../src/ui/image-viewer';
+import { FileProperties } from '../src/ui/file-properties';
+import { viewerRoute } from '../src/documents/viewer-route';
 
 export default function Viewer() {
   const router = useRouter();
@@ -18,11 +21,11 @@ export default function Viewer() {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showProperties, setShowProperties] = useState(false);
   const opening = useRef(false);
-  const [imageFailed, setImageFailed] = useState(false);
   const showPdf = document?.category === 'pdf' && nativeStorage !== null;
-  const showImage = document?.category === 'images' && !imageFailed;
-  const showOffice = document && ['xlsx', 'xls', 'csv', 'ods', 'pptx'].includes(document.extension);
+  const showImage = document?.category === 'images';
+  const showOffice = document && ['xlsx', 'xls', 'csv', 'ods', 'pptx', 'docx'].includes(document.extension);
 
   async function openExternally() {
     if (!document || opening.current) return;
@@ -57,8 +60,7 @@ export default function Viewer() {
         <>
           {showPdf && <PdfViewer key={document.id} uri={document.id} />}
           {showOffice && <OfficeViewer key={document.id} file={document} />}
-          {showImage && <Image className="mx-4 flex-1" accessibilityLabel={document.name} source={{ uri: document.id }}
-            resizeMode="contain" onError={() => setImageFailed(true)} />}
+          {showImage && <ImageViewer key={document.id} uri={document.id} name={document.name} />}
           <View className="gap-3 px-4 pb-4">
             {!showPdf && !showImage && !showOffice && (
               <Text className="text-base" style={{ color: colors.muted }}>
@@ -66,9 +68,14 @@ export default function Viewer() {
               </Text>
             )}
             {error !== '' && <EmptyCard icon="alert-circle-outline" title="Could not open file" description={error} />}
-            <Action label={busy ? 'Opening…' : Platform.OS === 'android' ? 'Open in another app' : 'Open system preview'}
-              icon="open-outline" onPress={openExternally} busy={busy} />
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Action label={busy ? 'Opening…' : Platform.OS === 'android' ? 'Open in another app' : 'Open system preview'}
+                icon="open-outline" onPress={openExternally} busy={busy} />
+              <IconButton icon="information-circle-outline" label="File properties" onPress={() => setShowProperties(true)} />
+            </View>
           </View>
+          {showProperties && <FileProperties file={document} onClose={() => setShowProperties(false)}
+            onRenamed={file => { setShowProperties(false); router.replace(viewerRoute(file.id)); }} />}
         </>
       )}
     </Screen>

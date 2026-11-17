@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { SelectedFile } from '../documents/files';
 import { detectFormat } from '../documents/formats';
 import { nativeStorage } from '../documents/native-storage';
+import { isListedFile } from '../documents/search';
+import { moveWorkbookLayout } from '../storage/settings';
 
 type Library = {
   files: SelectedFile[];
@@ -44,7 +46,7 @@ export const useDiscovery = create<Discovery>((set, get) => ({
       }
       set({
         status: 'ready',
-        files: entries.map(entry => ({
+        files: entries.filter(isListedFile).map(entry => ({
           id: entry.uri,
           name: entry.name,
           size: entry.size,
@@ -59,3 +61,21 @@ export const useDiscovery = create<Discovery>((set, get) => ({
     }
   },
 }));
+
+export async function renameLibraryFile(file: SelectedFile, name: string) {
+  if (!nativeStorage?.renameFile) throw new Error('Install the updated GRANTH Android build to rename files.');
+  const result = await nativeStorage.renameFile(file.id, name);
+  const renamed: SelectedFile = { ...file, id: result.uri, name: result.name, ...detectFormat(result.name, file.mimeType) };
+  function replace(files: SelectedFile[]) {
+    return files.some(entry => entry.id === file.id)
+      ? files.filter(entry => entry.id !== renamed.id || entry.id === file.id)
+        .map(entry => entry.id === file.id ? renamed : entry)
+      : files;
+  }
+  useLibrary.setState(state => ({ files: replace(state.files) }));
+  useDiscovery.setState(state => ({ files: replace(state.files) }));
+  if (file.category === 'sheets') {
+    try { await moveWorkbookLayout(file.id, renamed.id); } catch { /* The original was already renamed. */ }
+  }
+  return renamed;
+}

@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Image, Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { categories } from '../src/documents/formats';
+import type { SelectedFile } from '../src/documents/files';
 import { mergeFiles, searchFiles } from '../src/documents/search';
 import { viewerRoute } from '../src/documents/viewer-route';
 import { FileRow } from '../src/ui/file-row';
+import { useResultPages } from '../src/ui/use-result-pages';
+import { ResultFooter } from '../src/ui/result-footer';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, EmptyCard, IconButton, Screen, SearchField } from '../src/ui/components';
@@ -18,11 +21,16 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
   const results = useMemo(() => searching ? searchFiles(mergeFiles(discovered, files), query) : [], [discovered, files, query, searching]);
+  const { items, loadMore, loading, hasMore } = useResultPages(results, query);
+  const list = useRef<FlatList<SelectedFile>>(null);
+  useEffect(() => list.current?.scrollToOffset({ offset: 0, animated: false }), [query]);
 
   return (
     <Screen>
       <FlatList
-        data={results}
+        ref={list}
+        data={items}
+        ListFooterComponent={<ResultFooter loading={loading} hasMore={hasMore} onLoadMore={loadMore} />}
         keyExtractor={file => file.id}
         renderItem={({ item }) => <FileRow file={item}
           onOpen={() => router.push(viewerRoute(item.id))} />}
@@ -31,9 +39,7 @@ export default function Home() {
         ListHeaderComponent={
           <View className="gap-6">
             <View className="flex-row items-center gap-3">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: colors.hero }}>
-                <Ionicons name="book-outline" size={25} color={colors.gold} />
-              </View>
+              <Image source={require('../public/logo.png')} className="h-12 w-12 rounded-xl" />
               <Text accessibilityRole="header" className="flex-1 text-2xl font-bold tracking-widest" style={{ color: colors.ink }}>GRANTH</Text>
               <IconButton icon="contrast-outline" label="Appearance" onPress={() => router.push('/appearance')} />
             </View>
@@ -54,7 +60,7 @@ export default function Home() {
                 <View className="gap-3">
                   <Text accessibilityRole="header" className="text-xl font-bold" style={{ color: colors.ink }}>Formats</Text>
                   <View className="flex-row flex-wrap gap-2">
-                    {categories.map(category => (
+                    {categories.filter(category => category.id !== 'images').map(category => (
                       <Pressable key={category.id} accessibilityRole="button" accessibilityLabel={`Browse ${category.label}`}
                         onPress={() => router.push({ pathname: '/browse', params: { category: category.id } })}
                         className="min-h-20 grow basis-1/4 items-start justify-center gap-2 rounded-2xl border px-3 py-3 active:opacity-70"
@@ -66,18 +72,6 @@ export default function Home() {
                   </View>
                 </View>
 
-                <View className="gap-3">
-                  <View className="flex-row flex-wrap items-center justify-between gap-2">
-                    <Text accessibilityRole="header" className="text-xl font-bold" style={{ color: colors.ink }}>Recently opened</Text>
-                    <Text className="text-sm" style={{ color: colors.muted }}>0 documents</Text>
-                  </View>
-                  <EmptyCard icon="time-outline" title="No reading history" description="Opened documents will appear here when viewing is available." />
-                </View>
-
-                <View className="gap-3">
-                  <Text accessibilityRole="header" className="text-xl font-bold" style={{ color: colors.ink }}>Favorites</Text>
-                  <EmptyCard icon="star-outline" title="No favorites yet" description="Favorite documents will appear here once saving favorites is available." />
-                </View>
               </>
             )}
             {searching && <Text accessibilityRole="header" className="mb-3 text-xl font-bold" style={{ color: colors.ink }}>Matching files</Text>}

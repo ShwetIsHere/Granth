@@ -1,72 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, PanResponder, Text, View, type FlatListProps, type GestureResponderEvent } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Text, View, type FlatListProps } from 'react-native';
 import { nativeStorage, type PdfPage } from '../documents/native-storage';
-import { fitPage, moveZoom, type Zoom } from '../documents/pdf-zoom';
+import { ZoomSurface } from './zoom-surface';
 import { useTheme } from '../theme/theme';
 import { EmptyCard, IconButton } from './components';
-
-function touchPoint(event: GestureResponderEvent, width: number, height: number) {
-  const [first, second] = event.nativeEvent.touches;
-  if (!first) return;
-  return {
-    x: (first.locationX + (second?.locationX ?? first.locationX)) / 2 - width / 2,
-    y: (first.locationY + (second?.locationY ?? first.locationY)) / 2 - height / 2,
-    distance: second ? Math.max(1, Math.hypot(first.pageX - second.pageX, first.pageY - second.pageY)) : 0,
-  };
-}
-
-function ZoomPage({ page, index, width, onZoom }: {
-  page: PdfPage; index: number; width: number; onZoom: (zoomed: boolean) => void;
-}) {
-  const height = width * page.height / page.width;
-  const [zoom, setZoom] = useState(fitPage);
-  const current = useRef(fitPage);
-  const start = useRef<{ point: NonNullable<ReturnType<typeof touchPoint>>; zoom: Zoom } | undefined>(undefined);
-
-  const gestures = useMemo(() => {
-    const begin = (event: GestureResponderEvent) => {
-      const point = touchPoint(event, width, height);
-      start.current = point && { point, zoom: current.current };
-    };
-    const finish = () => {
-      const zoomed = current.current.scale > 1.01;
-      if (!zoomed) {
-        current.current = fitPage;
-        setZoom(fitPage);
-      }
-      onZoom(zoomed);
-    };
-    return PanResponder.create({
-      onStartShouldSetPanResponder: event => event.nativeEvent.touches.length > 1 || current.current.scale > 1,
-      onMoveShouldSetPanResponder: event => event.nativeEvent.touches.length > 1,
-      onPanResponderGrant: begin,
-      onPanResponderMove: event => {
-        const point = touchPoint(event, width, height);
-        const origin = start.current;
-        if (!point || !origin || Boolean(point.distance) !== Boolean(origin.point.distance)) {
-          begin(event);
-          return;
-        }
-        const ratio = point.distance ? point.distance / origin.point.distance : 1;
-        const next = moveZoom(origin.zoom, origin.point, point, ratio, width, height);
-        current.current = next;
-        setZoom(next);
-      },
-      onPanResponderRelease: finish,
-      onPanResponderTerminate: finish,
-      onPanResponderTerminationRequest: () => false,
-    });
-  }, [height, onZoom, width]);
-
-  return (
-    <View collapsable={false} {...gestures.panHandlers} style={{ width, height, overflow: 'hidden', backgroundColor: '#FFFFFF' }}>
-      <View pointerEvents="none">
-        <Image accessibilityLabel={`PDF page ${index + 1}`} source={{ uri: page.image }}
-          style={{ width, height, transform: [{ translateX: zoom.x }, { translateY: zoom.y }, { scale: zoom.scale }] }} />
-      </View>
-    </View>
-  );
-}
 
 function PdfRow({ uri, index, first, width, reset, onZoom }: {
   uri: string; index: number; first: PdfPage; width: number; reset: number; onZoom: (zoomed: boolean) => void;
@@ -87,7 +24,10 @@ function PdfRow({ uri, index, first, width, reset, onZoom }: {
 
   return (
     <View style={{ paddingBottom: 12 }}>
-      {page ? <ZoomPage key={reset} page={page} index={index} width={width} onZoom={onZoom} /> : (
+      {page ? <ZoomSurface key={reset} width={width} height={width * page.height / page.width} onZoom={onZoom}>
+        <Image accessibilityLabel={`PDF page ${index + 1}`} source={{ uri: page.image }}
+          style={{ width, height: width * page.height / page.width, backgroundColor: '#FFFFFF' }} />
+      </ZoomSurface> : (
         <View style={{ minHeight: error ? 90 : width * first.height / first.width, justifyContent: 'center' }}>
           {error ? <EmptyCard icon="alert-circle-outline" title={`Page ${index + 1} could not load`}
             description="Continue scrolling to view other pages." /> : <ActivityIndicator color={colors.accent} />}

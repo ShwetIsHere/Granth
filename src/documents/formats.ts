@@ -3,7 +3,7 @@ export const categories = [
   { id: 'word', label: 'Word', icon: 'reader-outline', extensions: ['docx', 'doc', 'rtf', 'odt'] },
   { id: 'sheets', label: 'Sheets', icon: 'grid-outline', extensions: ['xlsx', 'xls', 'csv', 'ods'] },
   { id: 'slides', label: 'Slides', icon: 'easel-outline', extensions: ['pptx', 'ppt', 'odp'] },
-  { id: 'text', label: 'Text', icon: 'code-slash-outline', extensions: ['txt', 'md', 'log'] },
+  { id: 'text', label: 'Text', icon: 'code-slash-outline', extensions: ['txt', 'md'] },
   { id: 'images', label: 'Images', icon: 'image-outline', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] },
 ] as const;
 

@@ -1,7 +1,5 @@
-import { DOMParser, type Element } from '@xmldom/xmldom';
-import { fromByteArray } from 'base64-js';
-import { strFromU8 } from 'fflate';
-import { officeZip } from './office-file';
+import type { Element } from '@xmldom/xmldom';
+import { attr, child, children, imageUri, openOfficePackage, relationshipId } from './open-xml';
 
 type Frame = { x: number; y: number; width: number; height: number; rotation: number };
 export type SlideText = { text: string; size: number; color?: string; bold: boolean; italic: boolean };
@@ -14,11 +12,6 @@ export type SlideElement = Frame & {
 
 export type Slide = { elements: SlideElement[]; background: string; partial: boolean };
 
-const children = (node?: Element, name?: string) =>
-  Array.from(node?.childNodes ?? []).filter((child): child is Element =>
-    child.nodeType === 1 && (!name || (child as Element).localName === name));
-const child = (node: Element | undefined, name: string) => children(node, name)[0];
-const attr = (node: Element | undefined, name: string) => node?.getAttribute(name) ?? '';
 const positive = (value: string, fallback: number) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
@@ -27,15 +20,6 @@ const positive = (value: string, fallback: number) => {
 function color(node?: Element) {
   const rgb = attr(child(node, 'srgbClr'), 'val');
   return /^[0-9a-f]{6}$/i.test(rgb) ? '#' + rgb : undefined;
-}
-
-function resolvePart(part: string, target: string) {
-  const segments = target.startsWith('/') ? [] : part.split('/').slice(0, -1);
-  for (const piece of target.split('/')) {
-    if (piece === '..') segments.pop();
-    else if (piece && piece !== '.') segments.push(piece);
-  }
-  return segments.join('/');
 }
 
 function frame(node?: Element): Frame | undefined {
@@ -51,11 +35,6 @@ function frame(node?: Element): Frame | undefined {
 function placeholder(shape: Element) {
   const props = children(shape).find(node => node.localName?.startsWith('nv'));
   return child(child(props, 'nvPr'), 'ph');
-}
-
-function relationshipId(node?: Element, attribute = 'id') {
-  return Array.from(node?.attributes ?? []).find(item => item.localName === attribute &&
-    item.namespaceURI?.endsWith('/relationships'))?.value ?? '';
 }
 
 function paragraphs(textBody: Element, title: boolean): Paragraph[] {
@@ -80,30 +59,8 @@ function paragraphs(textBody: Element, title: boolean): Paragraph[] {
   });
 }
 
-function imageUri(bytes: Uint8Array, path: string) {
-  const type = path.split('.').at(-1)?.toLowerCase();
-  if (!type || !['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(type)) return;
-  return `data:image/${type === 'jpg' ? 'jpeg' : type};base64,${fromByteArray(bytes)}`;
-}
-
 export function readPresentation(bytes: Uint8Array) {
-  const parts = officeZip(bytes, name => name.startsWith('ppt/') && /\.(xml|rels|png|jpe?g|gif|webp|bmp)$/i.test(name));
-  function xml(path: string) {
-    const entry = parts[path];
-    if (!entry) return undefined;
-    const text = strFromU8(entry);
-    if (/<!DOCTYPE/i.test(text)) throw new Error('Unsupported presentation XML.');
-    return new DOMParser().parseFromString(text, 'application/xml').documentElement ?? undefined;
-  }
-
-  function relationships(path: string) {
-    const slash = path.lastIndexOf('/');
-    const rels = xml(path.slice(0, slash + 1) + '_rels/' + path.slice(slash + 1) + '.rels');
-    return children(rels, 'Relationship').filter(rel => attr(rel, 'TargetMode') !== 'External').map(rel => ({
-      id: attr(rel, 'Id'), type: attr(rel, 'Type'), path: resolvePart(path, attr(rel, 'Target')),
-    }));
-  }
-
+  const { parts, xml, relationships } = openOfficePackage(bytes, 'ppt/');
   const main = 'ppt/presentation.xml';
   const root = xml(main);
   const links = relationships(main);

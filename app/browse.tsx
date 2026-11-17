@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { pickFiles } from '../src/documents/files';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, ScrollView, Text, View, type FlatListProps } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { pickFiles, type SelectedFile } from '../src/documents/files';
 import { categories, findCategory, type Category } from '../src/documents/formats';
 import { mergeFiles, searchFiles, type SortOrder } from '../src/documents/search';
 import { nativeStorage } from '../src/documents/native-storage';
@@ -9,7 +9,10 @@ import { viewerRoute } from '../src/documents/viewer-route';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, Choice, EmptyCard, Screen, SearchField, ScreenHeading } from '../src/ui/components';
-import { FileRow } from '../src/ui/file-row';
+import { FileGridCard } from '../src/ui/file-grid-card';
+import { FileProperties } from '../src/ui/file-properties';
+import { useResultPages } from '../src/ui/use-result-pages';
+import { ResultFooter } from '../src/ui/result-footer';
 
 const sorts: { id: SortOrder; label: string }[] = [
   { id: 'recent', label: 'Date' },
@@ -28,13 +31,29 @@ export default function Browse() {
   const files = useMemo(() => mergeFiles(discovered, picked), [discovered, picked]);
   const add = useLibrary(state => state.add);
   const remove = useLibrary(state => state.remove);
-  const [category, setCategory] = useState<Category | undefined>(findCategory(params.category)?.id);
+  const [category, setCategory] = useState<Category | undefined>(() =>
+    params.category === 'images' ? undefined : findCategory(params.category)?.id);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('recent');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [details, setDetails] = useState<SelectedFile>();
+  const [visibleFiles, setVisibleFiles] = useState<Set<string>>(() => new Set());
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  const updateVisibility = useRef<NonNullable<FlatListProps<SelectedFile>['onViewableItemsChanged']>>(({ viewableItems }) => {
+    setVisibleFiles(new Set(viewableItems.map(entry => (entry.item as SelectedFile).id)));
+  }).current;
+  const viewability = useRef({ itemVisiblePercentThreshold: 20 }).current;
   const picking = useRef(false);
   const results = useMemo(() => searchFiles(files, query, category, sort), [files, query, category, sort]);
+  const criteria = JSON.stringify([query, category, sort]);
+  const { items, loadMore, loading, hasMore } = useResultPages(results, criteria);
+  const list = useRef<FlatList<SelectedFile>>(null);
+  useEffect(() => list.current?.scrollToOffset({ offset: 0, animated: false }), [criteria]);
 
   function openFile(id: string) {
     router.push(viewerRoute(id));
@@ -74,10 +93,20 @@ export default function Browse() {
     <Screen>
       <ScreenHeading title="Browse files" onBack={() => router.canGoBack() ? router.back() : router.replace('/')} />
       <FlatList
-        data={results}
+        ref={list}
+        data={items}
+        ListFooterComponent={<ResultFooter loading={loading} hasMore={hasMore} onLoadMore={loadMore} />}
+        numColumns={2}
         keyExtractor={file => file.id}
-        renderItem={({ item }) => <FileRow file={item} onOpen={() => openFile(item.id)}
-          onRemove={item.location ? undefined : () => remove(item.id)} />}
+        onViewableItemsChanged={updateVisibility}
+        viewabilityConfig={viewability}
+        renderItem={({ item }) => (
+          <View style={{ width: '50%', paddingHorizontal: 4 }}>
+            <FileGridCard file={item} visible={focused && visibleFiles.has(item.id)} onOpen={() => openFile(item.id)}
+              onDetails={() => setDetails(item)} />
+          </View>
+        )}
+        windowSize={5}
         refreshing={discoveryStatus === 'loading'}
         onRefresh={discoveryStatus === 'ready' || discoveryStatus === 'loading' || discoveryStatus === 'error'
           ? () => void refresh() : undefined}
@@ -114,7 +143,7 @@ export default function Browse() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ gap: 8 }}>
               <Choice label="All formats" selected={!category} onPress={() => setCategory(undefined)} />
-              {categories.map(format => (
+              {categories.filter(format => format.id !== 'images').map(format => (
                 <Choice key={format.id} label={format.label} selected={category === format.id} onPress={() => setCategory(format.id)} />
               ))}
             </ScrollView>
@@ -137,6 +166,9 @@ export default function Browse() {
           } />
           : <EmptyCard icon="search-outline" title="No matching files" description="Try a different name or format filter." />}
       />
+      {details && <FileProperties key={details.id} file={details} onClose={() => setDetails(undefined)}
+        onRenamed={setDetails}
+        onRemove={details.location ? undefined : () => { remove(details.id); setDetails(undefined); }} />}
     </Screen>
   );
 }

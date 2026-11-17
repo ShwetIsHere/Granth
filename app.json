@@ -4,6 +4,7 @@
     "slug": "granth",
     "version": "0.1.0",
     "scheme": "granth",
+    "icon": "./public/logo.png",
     "userInterfaceStyle": "automatic",
     "platforms": [
       "android",
@@ -11,13 +12,33 @@
     ],
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./public/logo.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ]
     ],
     "android": {
       "package": "app.granth.viewer",
       "allowBackup": false,
       "permissions": [
         "android.permission.MANAGE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "application/pdf"
+          }
+        }
       ]
     },
     "ios": {

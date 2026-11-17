@@ -43,3 +43,30 @@ export async function saveTheme(preference: ThemePreference) {
     'theme', preference,
   );
 }
+
+export type SheetLayout = { zoom: number; columns: Record<string, number>; rows: Record<string, number> };
+export type WorkbookLayout = Record<string, SheetLayout>;
+
+const workbookKey = (uri: string) => 'workbook:' + uri;
+
+export async function readWorkbookLayout(uri: string): Promise<WorkbookLayout> {
+  const db = await settingsDatabase();
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM settings WHERE key = ?', workbookKey(uri),
+  );
+  return row ? JSON.parse(row.value) as WorkbookLayout : {};
+}
+
+export async function saveWorkbookLayout(uri: string, layout: WorkbookLayout) {
+  const db = await settingsDatabase();
+  await db.runAsync(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    workbookKey(uri), JSON.stringify(layout),
+  );
+}
+
+export async function moveWorkbookLayout(previousUri: string, newUri: string) {
+  if (previousUri === newUri) return;
+  const db = await settingsDatabase();
+  await db.runAsync('UPDATE OR REPLACE settings SET key = ? WHERE key = ?', workbookKey(newUri), workbookKey(previousUri));
+}

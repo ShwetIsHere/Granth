@@ -3,9 +3,9 @@ import { officeZip } from './office-file';
 
 export const maxWorksheetRows = 10000;
 
-export function readWorkbook(bytes: Uint8Array) {
+export function readWorkbook(bytes: Uint8Array, options: { sheetRows?: number; sheets?: number } = {}) {
   if (bytes[0] === 0x50 && bytes[1] === 0x4b) officeZip(bytes);
-  return read(bytes, { type: 'array', sheetRows: maxWorksheetRows, cellFormula: false, cellHTML: false });
+  return read(bytes, { type: 'array', sheetRows: maxWorksheetRows, cellStyles: true, cellFormula: false, cellHTML: false, ...options });
 }
 
 export function cellText(sheet: WorkSheet, address: string) {

@@ -24,6 +24,9 @@ type NativeStorage = {
   scan(): Promise<DiscoveredFile[]>;
   prepareExternalPreview(uri: string): Promise<string>;
   renderPdfPage(uri: string, pageIndex: number): Promise<PdfPage>;
+  takePdfOpenRequest?: () => Promise<{ uri: string; name: string; size?: number } | null>;
+  renameFile?: (uri: string, name: string) => Promise<{ uri: string; name: string }>;
+  addListener?: (event: 'onPdfOpen', listener: () => void) => { remove: () => void };
 };
 
 export const nativeStorage = Platform.OS === 'android'
