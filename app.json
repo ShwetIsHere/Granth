@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "GRANTH",
+    "slug": "granth",
+    "version": "0.1.0",
+    "scheme": "granth",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ],
+    "android": {
+      "package": "app.granth.viewer",
+      "allowBackup": false
+    },
+    "ios": {
+      "bundleIdentifier": "app.granth.viewer"
+    }
+  }
+}
