@@ -7,6 +7,7 @@ import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, EmptyCard, Screen, ScreenHeading } from '../src/ui/components';
 import { PdfViewer } from '../src/ui/pdf-viewer';
+import { OfficeViewer } from '../src/ui/office-viewer';
 
 export default function Viewer() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function Viewer() {
   const [imageFailed, setImageFailed] = useState(false);
   const showPdf = document?.category === 'pdf' && nativeStorage !== null;
   const showImage = document?.category === 'images' && !imageFailed;
+  const showOffice = document && ['xlsx', 'xls', 'csv', 'ods', 'pptx'].includes(document.extension);
 
   async function openExternally() {
     if (!document || opening.current) return;
@@ -54,10 +56,11 @@ export default function Viewer() {
       ) : (
         <>
           {showPdf && <PdfViewer key={document.id} uri={document.id} />}
+          {showOffice && <OfficeViewer key={document.id} file={document} />}
           {showImage && <Image className="mx-4 flex-1" accessibilityLabel={document.name} source={{ uri: document.id }}
             resizeMode="contain" onError={() => setImageFailed(true)} />}
           <View className="gap-3 px-4 pb-4">
-            {!showPdf && !showImage && (
+            {!showPdf && !showImage && !showOffice && (
               <Text className="text-base" style={{ color: colors.muted }}>
                 {Platform.OS === 'android' ? 'This file opens in a compatible app installed on your device.' : 'Use the system viewer to preview this file.'}
               </Text>

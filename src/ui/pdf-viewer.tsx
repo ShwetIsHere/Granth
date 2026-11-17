@@ -1,61 +1,164 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, PanResponder, Text, View, type FlatListProps, type GestureResponderEvent } from 'react-native';
 import { nativeStorage, type PdfPage } from '../documents/native-storage';
+import { fitPage, moveZoom, type Zoom } from '../documents/pdf-zoom';
 import { useTheme } from '../theme/theme';
-import { Choice, EmptyCard, IconButton } from './components';
+import { EmptyCard, IconButton } from './components';
+
+function touchPoint(event: GestureResponderEvent, width: number, height: number) {
+  const [first, second] = event.nativeEvent.touches;
+  if (!first) return;
+  return {
+    x: (first.locationX + (second?.locationX ?? first.locationX)) / 2 - width / 2,
+    y: (first.locationY + (second?.locationY ?? first.locationY)) / 2 - height / 2,
+    distance: second ? Math.max(1, Math.hypot(first.pageX - second.pageX, first.pageY - second.pageY)) : 0,
+  };
+}
+
+function ZoomPage({ page, index, width, onZoom }: {
+  page: PdfPage; index: number; width: number; onZoom: (zoomed: boolean) => void;
+}) {
+  const height = width * page.height / page.width;
+  const [zoom, setZoom] = useState(fitPage);
+  const current = useRef(fitPage);
+  const start = useRef<{ point: NonNullable<ReturnType<typeof touchPoint>>; zoom: Zoom } | undefined>(undefined);
+
+  const gestures = useMemo(() => {
+    const begin = (event: GestureResponderEvent) => {
+      const point = touchPoint(event, width, height);
+      start.current = point && { point, zoom: current.current };
+    };
+    const finish = () => {
+      const zoomed = current.current.scale > 1.01;
+      if (!zoomed) {
+        current.current = fitPage;
+        setZoom(fitPage);
+      }
+      onZoom(zoomed);
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: event => event.nativeEvent.touches.length > 1 || current.current.scale > 1,
+      onMoveShouldSetPanResponder: event => event.nativeEvent.touches.length > 1,
+      onPanResponderGrant: begin,
+      onPanResponderMove: event => {
+        const point = touchPoint(event, width, height);
+        const origin = start.current;
+        if (!point || !origin || Boolean(point.distance) !== Boolean(origin.point.distance)) {
+          begin(event);
+          return;
+        }
+        const ratio = point.distance ? point.distance / origin.point.distance : 1;
+        const next = moveZoom(origin.zoom, origin.point, point, ratio, width, height);
+        current.current = next;
+        setZoom(next);
+      },
+      onPanResponderRelease: finish,
+      onPanResponderTerminate: finish,
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [height, onZoom, width]);
+
+  return (
+    <View collapsable={false} {...gestures.panHandlers} style={{ width, height, overflow: 'hidden', backgroundColor: '#FFFFFF' }}>
+      <View pointerEvents="none">
+        <Image accessibilityLabel={`PDF page ${index + 1}`} source={{ uri: page.image }}
+          style={{ width, height, transform: [{ translateX: zoom.x }, { translateY: zoom.y }, { scale: zoom.scale }] }} />
+      </View>
+    </View>
+  );
+}
+
+function PdfRow({ uri, index, first, width, reset, onZoom }: {
+  uri: string; index: number; first: PdfPage; width: number; reset: number; onZoom: (zoomed: boolean) => void;
+}) {
+  const { colors } = useTheme();
+  const [page, setPage] = useState<PdfPage | undefined>(index === 0 ? first : undefined);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (index === 0) return;
+    let mounted = true;
+    nativeStorage?.renderPdfPage(uri, index).then(result => {
+      if (mounted) setPage(result);
+    }).catch(() => {
+      if (mounted) setError(true);
+    });
+    return () => { mounted = false; };
+  }, [index, uri]);
+
+  return (
+    <View style={{ paddingBottom: 12 }}>
+      {page ? <ZoomPage key={reset} page={page} index={index} width={width} onZoom={onZoom} /> : (
+        <View style={{ minHeight: error ? 90 : width * first.height / first.width, justifyContent: 'center' }}>
+          {error ? <EmptyCard icon="alert-circle-outline" title={`Page ${index + 1} could not load`}
+            description="Continue scrolling to view other pages." /> : <ActivityIndicator color={colors.accent} />}
+        </View>
+      )}
+    </View>
+  );
+}
 
 export function PdfViewer({ uri }: { uri: string }) {
   const { colors } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
-  const [index, setIndex] = useState(0);
-  const [page, setPage] = useState<PdfPage>();
-  const [pageCount, setPageCount] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [width, setWidth] = useState(0);
+  const [first, setFirst] = useState<PdfPage>();
   const [error, setError] = useState(false);
+  const [visible, setVisible] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  const [reset, setReset] = useState(0);
+  const list = useRef<FlatList<number>>(null);
+  const onVisible = useRef<NonNullable<FlatListProps<number>['onViewableItemsChanged']>>(({ viewableItems }) => {
+    const index = viewableItems[0]?.index;
+    if (index != null) setVisible(index);
+  }).current;
+  const viewability = useRef({ viewAreaCoveragePercentThreshold: 20 }).current;
+  const pages = useMemo(() => Array.from({ length: first?.pageCount ?? 0 }, (_, index) => index), [first]);
+  const onZoom = useMemo(() => (value: boolean) => setZoomed(value), []);
 
   useEffect(() => {
-    let active = true;
-    setPage(undefined);
-    setError(false);
-    nativeStorage?.renderPdfPage(uri, index).then(result => {
-      if (!active) return;
-      setPage(result);
-      setPageCount(result.pageCount);
+    let mounted = true;
+    nativeStorage?.renderPdfPage(uri, 0).then(page => {
+      if (mounted) setFirst(page);
     }).catch(() => {
-      if (active) setError(true);
+      if (mounted) setError(true);
     });
-    return () => { active = false; };
-  }, [uri, index]);
+    return () => { mounted = false; };
+  }, [uri]);
 
-  const displayWidth = Math.max(1, screenWidth - 32) * zoom;
+  function resetZoom() {
+    setZoomed(false);
+    setReset(value => value + 1);
+  }
+
+  function goTo(index: number) {
+    resetZoom();
+    list.current?.scrollToIndex({ index });
+  }
 
   return (
-    <View className="flex-1 gap-3 px-4 pb-4">
-      <View className="flex-row flex-wrap items-center justify-between gap-2">
-        {index > 0 && <IconButton icon="chevron-back" label="Previous page" onPress={() => setIndex(index - 1)} />}
-        <Text className="flex-1 font-semibold" style={{ color: colors.ink }} accessibilityLiveRegion="polite">
-          {pageCount ? `Page ${index + 1} of ${pageCount}` : 'PDF'}
-        </Text>
-        {index + 1 < pageCount && <IconButton icon="chevron-forward" label="Next page" onPress={() => setIndex(index + 1)} />}
-      </View>
-      {page && (
-        <>
-          <View className="flex-row flex-wrap gap-2">
-            <Choice label="Fit width" selected={zoom === 1} onPress={() => setZoom(1)} />
-            <Choice label="150%" selected={zoom === 1.5} onPress={() => setZoom(1.5)} />
-            <Choice label="200%" selected={zoom === 2} onPress={() => setZoom(2)} />
-          </View>
-          <ScrollView key={index}>
-            <ScrollView horizontal nestedScrollEnabled>
-              <Image accessibilityLabel={`PDF page ${index + 1}`} source={{ uri: page.image }}
-                style={{ width: displayWidth, height: displayWidth * page.height / page.width }} />
-            </ScrollView>
-          </ScrollView>
-        </>
+    <View className="flex-1 gap-2 px-3" onLayout={event => setWidth(Math.max(0, event.nativeEvent.layout.width - 24))}>
+      {first && (
+        <View className="flex-row items-center gap-2">
+          {visible > 0 && <IconButton icon="chevron-back" label="Previous page" onPress={() => goTo(visible - 1)} />}
+          <Text className="flex-1 font-semibold" style={{ color: colors.ink }}>
+            {`Page ${visible + 1} of ${first.pageCount}`}
+          </Text>
+          {zoomed && <IconButton icon="contract-outline" label="Reset zoom" onPress={resetZoom} />}
+          {visible + 1 < first.pageCount && <IconButton icon="chevron-forward" label="Next page" onPress={() => goTo(visible + 1)} />}
+        </View>
       )}
-      {error && <EmptyCard icon="alert-circle-outline" title="Could not display this page"
+      {first && width > 0 && (
+        <FlatList ref={list} data={pages} keyExtractor={String} scrollEnabled={!zoomed}
+          onViewableItemsChanged={onVisible} viewabilityConfig={viewability}
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            list.current?.scrollToOffset({ offset: index * (averageItemLength || width * first.height / first.width + 12) });
+          }}
+          renderItem={({ item }) => <PdfRow uri={uri} index={item} first={first} width={width}
+            reset={reset} onZoom={onZoom} />}
+          initialNumToRender={2} maxToRenderPerBatch={2} windowSize={5} />
+      )}
+      {error && <EmptyCard icon="alert-circle-outline" title="Could not open PDF"
         description="The PDF may be inaccessible, damaged, or password-protected. Try opening it in another app." />}
-      {!page && !error && <ActivityIndicator accessibilityLabel="Rendering PDF page" color={colors.accent} />}
+      {!first && !error && <ActivityIndicator accessibilityLabel="Opening PDF" color={colors.accent} />}
     </View>
   );
 }

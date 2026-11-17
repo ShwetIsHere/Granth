@@ -23,7 +23,7 @@ For a local development build, install Android Studio and Android SDK Platform 3
 
 1. Launch GRANTH. Check the Home empty states and open Browse via both the main button and a format tile.
 2. In the development build, choose **Allow storage access** in Browse and enable access in Android Settings. Return to GRANTH and verify files in Downloads and on a mounted SD card appear automatically. Revoke access and confirm discovered entries disappear.
-3. Open a multi-page PDF from each storage volume. Check page navigation and zoom. Open a PPTX using **Open in another app** and verify it launches a compatible installed viewer. Also check the picker flow and cancel behavior.
+3. Open a multi-page PDF from each storage volume. Scroll through the pages, pinch near a corner, and drag the zoomed page. Open an XLSX with more than one sheet and a PPTX with images on multiple slides. Check the sheet tabs, horizontal grid scrolling, and slide navigation.
 4. In Appearance, try Light, Dark, and System. Force-stop and reopen the app to verify the setting is restored and the temporary selection is cleared.
 5. With an installed release, disconnect from the network and repeat selection using files already downloaded to the device. Providers may require connectivity for remote-only files.
 
@@ -57,12 +57,12 @@ See `package-lock.json` for resolved versions. Bundling and dependency checks do
 
 ## Rendering phases
 
-Tapped PDFs render in the Android build with page navigation and zoom. Images preview in GRANTH. Office and other compatible files open through the OS viewer flow. Android may require a separate app that can open the format. To share a discovered raw file with that app, GRANTH stages a temporary private cache copy. Subsequent handoffs prune copies older than 24 hours. Android can also reclaim cache storage. Files discovered on a mounted volume are scanned again on launch, on return to the app, or on pull-to-refresh. Reading history and favorites remain future work.
+PDFs, images, spreadsheets, and PPTX files have in-app previews. Other compatible files open through the OS viewer flow. Android may require a separate app that can open the format. To share a discovered raw file with that app, GRANTH stages a temporary private cache copy. Subsequent handoffs prune copies older than 24 hours. Android can also reclaim cache storage. Files discovered on a mounted volume are scanned again on launch, on return to the app, or on pull-to-refresh. Reading history and favorites remain future work.
 
-- PDF. The Android build renders one page at a time with Android's PDF renderer. Text search, rotation, and password entry are pending. [Android PDF renderer](https://developer.android.com/reference/android/graphics/pdf/PdfRenderer)
+- PDF. The Android build renders nearby pages with Android's PDF renderer. Scroll vertically between pages, pinch to zoom, and drag to pan the zoomed page. Reset zoom to resume scrolling. Text search, rotation, and password entry are pending. [Android PDF renderer](https://developer.android.com/reference/android/graphics/pdf/PdfRenderer)
 - Word. DOCX needs a renderer for styles, tables, images, and pagination. Evaluate distinct offline parsing or conversion for DOC, RTF, and ODT, including missing fonts and layout differences.
-- Spreadsheets. Parse XLSX, XLS, CSV, and ODS using format-aware readers. Virtualize visible rows and columns and avoid loading large worksheets or recalculating an entire workbook on the UI thread.
-- Slides. PPTX, PPT, and ODP require layout-aware parsing or offline conversion. Fonts, charts, media, and presentation effects may vary by engine.
+- Spreadsheets. The offline preview reads XLSX, XLS, CSV, and ODS using SheetJS. It shows formatted cell values, with up to 10,000 rows per sheet and 20 columns per window. Preview files are limited to 32 MB. [SheetJS Community Edition](https://docs.sheetjs.com/docs/solutions/input/)
+- Slides. The offline PPTX preview supports positioned text, simple fills, and embedded bitmap images. Advanced layouts, charts, and effects may differ. Legacy PPT and ODP still open with the OS viewer.
 - Images and text. Decode large images at a suitable display size and verify BMP support per platform. Read large text files incrementally and use a Markdown renderer for formatted previews.
 
 See Expo's [SDK 58 release notes](https://expo.dev/changelog/sdk-58), [DocumentPicker documentation](https://docs.expo.dev/versions/v58.0.0/sdk/document-picker/), and the [NativeWind installation guide](https://www.nativewind.dev/docs/getting-started/installation).
