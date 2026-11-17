@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { categories } from '../src/documents/formats';
 import { mergeFiles, searchFiles } from '../src/documents/search';
+import { viewerRoute } from '../src/documents/viewer-route';
 import { FileRow } from '../src/ui/file-row';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
@@ -24,7 +25,7 @@ export default function Home() {
         data={results}
         keyExtractor={file => file.id}
         renderItem={({ item }) => <FileRow file={item}
-          onOpen={() => router.push({ pathname: '/viewer', params: { id: item.id } })} />}
+          onOpen={() => router.push(viewerRoute(item.id))} />}
         contentContainerStyle={{ width: '100%', maxWidth: 680, alignSelf: 'center', padding: 20, paddingBottom: 32 }}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={

@@ -5,6 +5,7 @@ import { pickFiles } from '../src/documents/files';
 import { categories, findCategory, type Category } from '../src/documents/formats';
 import { mergeFiles, searchFiles, type SortOrder } from '../src/documents/search';
 import { nativeStorage } from '../src/documents/native-storage';
+import { viewerRoute } from '../src/documents/viewer-route';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, Choice, EmptyCard, Screen, SearchField, ScreenHeading } from '../src/ui/components';
@@ -36,7 +37,7 @@ export default function Browse() {
   const results = useMemo(() => searchFiles(files, query, category, sort), [files, query, category, sort]);
 
   function openFile(id: string) {
-    router.push({ pathname: '/viewer', params: { id } });
+    router.push(viewerRoute(id));
   }
 
   async function requestAccess() {
