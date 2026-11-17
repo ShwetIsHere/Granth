@@ -15,10 +15,23 @@
     ],
     "android": {
       "package": "app.granth.viewer",
-      "allowBackup": false
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.MANAGE_EXTERNAL_STORAGE"
+      ]
     },
     "ios": {
       "bundleIdentifier": "app.granth.viewer"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "1f8f8dbd-7f11-4b56-83b5-cd49baf17457"
+      }
     }
   }
 }

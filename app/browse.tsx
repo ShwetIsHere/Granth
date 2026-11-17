@@ -3,14 +3,15 @@ import { ActivityIndicator, FlatList, ScrollView, Text, View } from 'react-nativ
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { pickFiles } from '../src/documents/files';
 import { categories, findCategory, type Category } from '../src/documents/formats';
-import { searchFiles, type SortOrder } from '../src/documents/search';
-import { useLibrary } from '../src/state/library';
+import { mergeFiles, searchFiles, type SortOrder } from '../src/documents/search';
+import { nativeStorage } from '../src/documents/native-storage';
+import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, Choice, EmptyCard, Screen, SearchField, ScreenHeading } from '../src/ui/components';
 import { FileRow } from '../src/ui/file-row';
 
 const sorts: { id: SortOrder; label: string }[] = [
-  { id: 'recent', label: 'Date selected' },
+  { id: 'recent', label: 'Date' },
   { id: 'name', label: 'Name' },
   { id: 'size', label: 'Size' },
 ];
@@ -19,7 +20,11 @@ export default function Browse() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
   const { colors } = useTheme();
-  const files = useLibrary(state => state.files);
+  const picked = useLibrary(state => state.files);
+  const discovered = useDiscovery(state => state.files);
+  const discoveryStatus = useDiscovery(state => state.status);
+  const refresh = useDiscovery(state => state.refresh);
+  const files = useMemo(() => mergeFiles(discovered, picked), [discovered, picked]);
   const add = useLibrary(state => state.add);
   const remove = useLibrary(state => state.remove);
   const [category, setCategory] = useState<Category | undefined>(findCategory(params.category)?.id);
@@ -29,6 +34,19 @@ export default function Browse() {
   const [error, setError] = useState('');
   const picking = useRef(false);
   const results = useMemo(() => searchFiles(files, query, category, sort), [files, query, category, sort]);
+
+  function openFile(id: string) {
+    router.push({ pathname: '/viewer', params: { id } });
+  }
+
+  async function requestAccess() {
+    setError('');
+    try {
+      await nativeStorage?.requestAccess();
+    } catch {
+      setError('Could not open Android storage settings.');
+    }
+  }
 
   async function selectFiles() {
     if (picking.current) return;
@@ -41,6 +59,7 @@ export default function Browse() {
         add(selected);
         setQuery('');
         if (!selected.every(file => file.category === category)) setCategory(undefined);
+        if (selected.length === 1) openFile(selected[0].id);
       }
     } catch {
       setError('The system picker could not return your files. Try selecting them again.');
@@ -56,7 +75,11 @@ export default function Browse() {
       <FlatList
         data={results}
         keyExtractor={file => file.id}
-        renderItem={({ item }) => <FileRow file={item} onRemove={() => remove(item.id)} />}
+        renderItem={({ item }) => <FileRow file={item} onOpen={() => openFile(item.id)}
+          onRemove={item.location ? undefined : () => remove(item.id)} />}
+        refreshing={discoveryStatus === 'loading'}
+        onRefresh={discoveryStatus === 'ready' || discoveryStatus === 'loading' || discoveryStatus === 'error'
+          ? () => void refresh() : undefined}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View className="h-2" />}
@@ -65,14 +88,27 @@ export default function Browse() {
             <View className="gap-3 rounded-3xl p-5" style={{ backgroundColor: colors.hero }}>
               <Text className="text-lg font-bold" style={{ color: colors.heroText }}>Files on your device</Text>
               <Text className="leading-5" style={{ color: colors.heroMuted }}>
-                Choose files through your system picker. Your selection is kept for this session.
+                {discoveryStatus === 'unavailable'
+                  ? 'Automatic discovery requires the GRANTH Android build on Android 11 or later.'
+                  : discoveryStatus === 'permission'
+                    ? 'Allow access once to discover files in shared phone storage and on your SD card.'
+                    : 'Browse shared phone storage and any mounted SD card.'}
               </Text>
               <View className="flex-row items-center gap-3">
                 <Action label={busy ? 'Opening picker…' : 'Choose files'} icon="folder-open-outline" onPress={selectFiles} busy={busy} />
                 {busy && <ActivityIndicator color={colors.gold} />}
               </View>
+              {discoveryStatus === 'permission' &&
+                <Action label="Allow storage access" icon="lock-open-outline" onPress={requestAccess} />}
             </View>
-            {error !== '' && <EmptyCard icon="alert-circle-outline" title="Could not select files" description={error} />}
+            {error !== '' && <EmptyCard icon="alert-circle-outline" title="Storage access" description={error} />}
+            {discoveryStatus === 'loading' && <ActivityIndicator accessibilityLabel="Scanning storage" color={colors.accent} />}
+            {discoveryStatus === 'error' && (
+              <View className="gap-2">
+                <EmptyCard icon="alert-circle-outline" title="Scan failed" description="Check that your storage is mounted and try again." />
+                <Action label="Scan again" icon="refresh-outline" onPress={() => void refresh()} />
+              </View>
+            )}
             <SearchField value={query} onChangeText={setQuery} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ gap: 8 }}>
@@ -89,14 +125,15 @@ export default function Browse() {
             </View>
             <View className="gap-1">
               <Text accessibilityRole="header" className="text-xl font-bold" style={{ color: colors.ink }}>
-                Selected files · {results.length}
+                Files · {results.length}
               </Text>
-              <Text className="text-sm" style={{ color: colors.muted }}>Document previews arrive in later phases.</Text>
             </View>
           </View>
         }
-        ListEmptyComponent={files.length === 0
-          ? <EmptyCard icon="folder-outline" title="No files selected" description="Choose files to see their names, formats, and available details." />
+        ListEmptyComponent={discoveryStatus === 'loading' ? undefined : files.length === 0
+          ? <EmptyCard icon="folder-outline" title="No files to show" description={
+            discoveryStatus === 'permission' ? 'Allow storage access or choose individual files.' : 'Use Choose files to select a document.'
+          } />
           : <EmptyCard icon="search-outline" title="No matching files" description="Try a different name or format filter." />}
       />
     </Screen>

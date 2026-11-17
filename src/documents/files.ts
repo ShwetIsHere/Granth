@@ -10,6 +10,8 @@ export type SelectedFile = {
   selectedAt: number;
   category?: Category;
   extension: string;
+  mimeType?: string;
+  location?: string;
 };
 
 export async function pickFiles(): Promise<SelectedFile[] | null> {
@@ -38,6 +40,7 @@ export async function pickFiles(): Promise<SelectedFile[] | null> {
       size,
       modifiedAt,
       selectedAt,
+      mimeType: asset.mimeType,
       ...detectFormat(asset.name, asset.mimeType),
     };
   });

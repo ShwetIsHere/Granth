@@ -1,14 +1,24 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { readTheme } from '../src/storage/settings';
+import { useDiscovery } from '../src/state/library';
 import { useTheme, useThemePreference } from '../src/theme/theme';
 
 export default function RootLayout() {
   const { colors, isDark } = useTheme();
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const { refresh } = useDiscovery.getState();
+    void refresh();
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void refresh();
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     let active = true;

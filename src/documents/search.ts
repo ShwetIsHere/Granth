@@ -3,6 +3,14 @@ import type { Category } from './formats';
 
 export type SortOrder = 'recent' | 'name' | 'size';
 
+export function mergeFiles(discovered: SelectedFile[], picked: SelectedFile[]) {
+  const byUri = new Map(discovered.map(file => [file.id, file]));
+  for (const file of picked) {
+    if (!byUri.has(file.id)) byUri.set(file.id, file);
+  }
+  return Array.from(byUri.values());
+}
+
 export function searchFiles(files: SelectedFile[], query: string, category?: Category, sort: SortOrder = 'recent') {
   const search = query.trim().toLowerCase();
   return files.filter(file =>

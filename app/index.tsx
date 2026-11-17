@@ -3,9 +3,9 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { categories } from '../src/documents/formats';
-import { searchFiles } from '../src/documents/search';
+import { mergeFiles, searchFiles } from '../src/documents/search';
 import { FileRow } from '../src/ui/file-row';
-import { useLibrary } from '../src/state/library';
+import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, EmptyCard, IconButton, Screen, SearchField } from '../src/ui/components';
 
@@ -13,16 +13,18 @@ export default function Home() {
   const router = useRouter();
   const { colors } = useTheme();
   const files = useLibrary(state => state.files);
+  const discovered = useDiscovery(state => state.files);
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
-  const results = useMemo(() => searching ? searchFiles(files, query) : [], [files, query, searching]);
+  const results = useMemo(() => searching ? searchFiles(mergeFiles(discovered, files), query) : [], [discovered, files, query, searching]);
 
   return (
     <Screen>
       <FlatList
         data={results}
         keyExtractor={file => file.id}
-        renderItem={({ item }) => <FileRow file={item} />}
+        renderItem={({ item }) => <FileRow file={item}
+          onOpen={() => router.push({ pathname: '/viewer', params: { id: item.id } })} />}
         contentContainerStyle={{ width: '100%', maxWidth: 680, alignSelf: 'center', padding: 20, paddingBottom: 32 }}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
@@ -43,7 +45,7 @@ export default function Home() {
                     Every Document.{ '\n'}One Granth.
                   </Text>
                   <Text className="mb-2 text-base leading-6" style={{ color: colors.heroMuted }}>
-                    Select files from your device to start your library.
+                    Find documents on your phone and SD card.
                   </Text>
                   <Action label="Browse files" icon="folder-open-outline" onPress={() => router.push('/browse')} />
                 </View>
@@ -77,11 +79,11 @@ export default function Home() {
                 </View>
               </>
             )}
-            {searching && <Text accessibilityRole="header" className="mb-3 text-xl font-bold" style={{ color: colors.ink }}>Selected files</Text>}
+            {searching && <Text accessibilityRole="header" className="mb-3 text-xl font-bold" style={{ color: colors.ink }}>Matching files</Text>}
           </View>
         }
         ListEmptyComponent={searching
-          ? <EmptyCard icon="search-outline" title="No matching files" description="Search includes files selected during this session." />
+          ? <EmptyCard icon="search-outline" title="No matching files" description="Search includes discovered files and files you selected." />
           : undefined}
         ItemSeparatorComponent={() => <View className="h-2" />}
       />
