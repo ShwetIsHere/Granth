@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { viewerRoute } from '../src/documents/viewer-route';
 import { FileRow } from '../src/ui/file-row';
 import { useResultPages } from '../src/ui/use-result-pages';
 import { ResultFooter } from '../src/ui/result-footer';
+import { useListCheckpoint } from '../src/ui/use-list-checkpoint';
 import { useDiscovery, useLibrary } from '../src/state/library';
 import { useTheme } from '../src/theme/theme';
 import { Action, EmptyCard, IconButton, Screen, SearchField } from '../src/ui/components';
@@ -22,15 +23,17 @@ export default function Home() {
   const searching = query.trim() !== '';
   const results = useMemo(() => searching ? searchFiles(mergeFiles(discovered, files), query) : [], [discovered, files, query, searching]);
   const { items, loadMore, loading, hasMore } = useResultPages(results, query);
-  const list = useRef<FlatList<SelectedFile>>(null);
-  useEffect(() => list.current?.scrollToOffset({ offset: 0, animated: false }), [query]);
+  const checkpoint = useListCheckpoint<SelectedFile>(query, items.length, loadMore);
 
   return (
     <Screen>
       <FlatList
-        ref={list}
+        ref={checkpoint.list}
         data={items}
-        ListFooterComponent={<ResultFooter loading={loading} hasMore={hasMore} onLoadMore={loadMore} />}
+        onScroll={checkpoint.onScroll}
+        scrollEventThrottle={16}
+        onContentSizeChange={checkpoint.onContentSizeChange}
+        ListFooterComponent={<ResultFooter loading={loading} hasMore={hasMore} onLoadMore={checkpoint.onLoadMore} />}
         keyExtractor={file => file.id}
         renderItem={({ item }) => <FileRow file={item}
           onOpen={() => router.push(viewerRoute(item.id))} />}

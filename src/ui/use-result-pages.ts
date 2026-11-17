@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const pageSize = 10;
 
@@ -27,5 +27,6 @@ export function useResultPages<T>(results: T[], criteria: string) {
     }, 220);
   }, [criteria, limit, loading, results.length]);
 
-  return { items: results.slice(0, limit), loadMore, loading, hasMore: limit < results.length };
+  const items = useMemo(() => results.slice(0, limit), [results, limit]);
+  return { items, loadMore, loading, hasMore: limit < results.length };
 }

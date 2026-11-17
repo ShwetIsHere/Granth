@@ -3,7 +3,7 @@ import { officeZip } from './office-file';
 
 export const maxWorksheetRows = 10000;
 
-export function readWorkbook(bytes: Uint8Array, options: { sheetRows?: number; sheets?: number } = {}) {
+export function readWorkbook(bytes: Uint8Array, options: { sheetRows?: number; sheets?: number; bookSheets?: boolean } = {}) {
   if (bytes[0] === 0x50 && bytes[1] === 0x4b) officeZip(bytes);
   return read(bytes, { type: 'array', sheetRows: maxWorksheetRows, cellStyles: true, cellFormula: false, cellHTML: false, ...options });
 }

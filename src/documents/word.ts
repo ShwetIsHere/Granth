@@ -13,7 +13,7 @@ export type WordParagraph = {
 export type WordTable = { type: 'table'; rows: WordParagraph[][][] };
 export type WordBlock = WordParagraph | WordTable;
 export type WordPageSetup = { width: number; height: number; top: number; bottom: number; left: number; right: number;
-  header: number; footer: number };
+  header: number; footer: number; gutter: number; vertical: 'flex-start' | 'center' | 'flex-end' | 'space-between' };
 type PageBand = { default?: WordParagraph[]; first?: WordParagraph[] };
 export type WordSection = { setup: WordPageSetup; blocks: WordBlock[]; header?: PageBand; footer?: PageBand;
   distinctFirst?: boolean; firstPage?: boolean };
@@ -37,18 +37,26 @@ function pageSetup(section?: Element, previous?: WordPageSetup): WordPageSetup {
   const margins = child(section, 'pgMar');
   const width = twips(size, 'w', previous?.width ?? 816) || 816;
   const height = twips(size, 'h', previous?.height ?? 1056) || 1056;
+  const vertical = value(child(section, 'vAlign'));
+  const gutter = twips(margins, 'gutter', previous?.gutter ?? 0);
   return { width, height, top: twips(margins, 'top', previous?.top ?? 96), bottom: twips(margins, 'bottom', previous?.bottom ?? 96),
-    left: twips(margins, 'left', previous?.left ?? 96), right: twips(margins, 'right', previous?.right ?? 96),
-    header: twips(margins, 'header', previous?.header ?? 48), footer: twips(margins, 'footer', previous?.footer ?? 48) };
+    left: twips(margins, 'left', previous ? previous.left - previous.gutter : 96) + gutter,
+    right: twips(margins, 'right', previous?.right ?? 96), gutter,
+    header: twips(margins, 'header', previous?.header ?? 48), footer: twips(margins, 'footer', previous?.footer ?? 48),
+    vertical: vertical === 'center' ? 'center' : vertical === 'bottom' ? 'flex-end' :
+      vertical === 'both' ? 'space-between' : vertical === 'top' ? 'flex-start' : previous?.vertical ?? 'flex-start' };
 }
 
-function inheritedStyle(node?: Element): WordStyle {
+function inheritedStyle(node?: Element, theme?: { major: string; minor: string }): WordStyle {
   const result: WordStyle = {};
   const size = Number(value(child(node, 'sz')));
   if (size > 0 && Number.isFinite(size)) result.size = Math.min(96, size * 2 / 3);
   const color = value(child(node, 'color'));
   if (/^[a-f\d]{6}$/i.test(color)) result.color = '#' + color;
-  const font = localAttribute(child(node, 'rFonts'), 'ascii') || localAttribute(child(node, 'rFonts'), 'hAnsi');
+  const fonts = child(node, 'rFonts');
+  const themeFont = localAttribute(fonts, 'asciiTheme') || localAttribute(fonts, 'hAnsiTheme');
+  const font = (themeFont.startsWith('major') ? theme?.major : themeFont.startsWith('minor') ? theme?.minor : undefined)
+    || localAttribute(fonts, 'ascii') || localAttribute(fonts, 'hAnsi');
   if (font) result.font = /times|cambria|garamond|georgia|serif/i.test(font) ? 'serif'
     : /courier|consolas|mono/i.test(font) ? 'monospace' : 'sans-serif';
   for (const [property, tag] of [['bold', 'b'], ['italic', 'i'], ['underline', 'u']] as const) {
@@ -64,10 +72,16 @@ export function readWord(bytes: Uint8Array): WordSection[] {
   const body = child(xml(path), 'body');
   if (!body) throw new Error('Document body is missing.');
   const rels = relationships(path);
+  const themePart = rels.find(rel => rel.type.endsWith('/theme'));
+  const fontScheme = themePart ? child(child(xml(themePart.path), 'themeElements'), 'fontScheme') : undefined;
+  const theme = {
+    major: attr(child(child(fontScheme, 'majorFont'), 'latin'), 'typeface'),
+    minor: attr(child(child(fontScheme, 'minorFont'), 'latin'), 'typeface'),
+  };
   const styles = xml('word/styles.xml');
   const imageCache = new Map<string, string>();
   const styleList = children(styles, 'style');
-  const defaults = inheritedStyle(child(child(child(styles, 'docDefaults'), 'rPrDefault'), 'rPr'));
+  const defaults = inheritedStyle(child(child(child(styles, 'docDefaults'), 'rPrDefault'), 'rPr'), theme);
   const paragraphDefaults = child(child(child(styles, 'docDefaults'), 'pPrDefault'), 'pPr');
   const normalStyle = styleList.find(item => localAttribute(item, 'type') === 'paragraph' && localAttribute(item, 'default') === '1');
 
@@ -76,7 +90,7 @@ export function readWord(bytes: Uint8Array): WordSection[] {
       Array.from(item.attributes).some(attribute => attribute.localName === 'styleId' && attribute.value === id));
     if (!style) return {};
     const parent = value(child(style, 'basedOn'));
-    return { ...(parent ? resolveStyle(parent, depth + 1) : {}), ...inheritedStyle(child(style, 'rPr')) };
+    return { ...(parent ? resolveStyle(parent, depth + 1) : {}), ...inheritedStyle(child(style, 'rPr'), theme) };
   }
 
   function paragraphProperties(id: string, depth = 0): Element[] {
@@ -90,7 +104,7 @@ export function readWord(bytes: Uint8Array): WordSection[] {
     const pPr = child(node, 'pPr');
     const id = value(child(pPr, 'pStyle')) || localAttribute(normalStyle, 'styleId');
     const heading = /^heading\s*[1-9]$/i.test(id) || id.toLowerCase() === 'title';
-    const base = { ...defaults, ...(heading ? { size: 24, bold: true } : {}), ...resolveStyle(id), ...inheritedStyle(child(pPr, 'rPr')) };
+    const base = { ...defaults, ...(heading ? { size: 24, bold: true } : {}), ...resolveStyle(id), ...inheritedStyle(child(pPr, 'rPr'), theme) };
     const propertyChain = [pPr, ...paragraphProperties(id), paragraphDefaults];
     const property = (name: string) => propertyChain.map(node => child(node, name)).find(Boolean);
     const align = value(property('jc'));
@@ -120,7 +134,7 @@ export function readWord(bytes: Uint8Array): WordSection[] {
     for (const run of inline) {
       if (run.localName !== 'r') continue;
       const rPr = child(run, 'rPr');
-      const style = { ...base, ...resolveStyle(value(child(rPr, 'rStyle'))), ...inheritedStyle(rPr) };
+      const style = { ...base, ...resolveStyle(value(child(rPr, 'rStyle'))), ...inheritedStyle(rPr, theme) };
       for (const item of children(run)) {
         const tag = item.localName;
         if (tag === 'lastRenderedPageBreak' || (tag === 'br' && localAttribute(item, 'type') === 'page')) {

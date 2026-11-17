@@ -48,7 +48,8 @@ function WordPage({ page, width, reset, onZoom }: {
     <ZoomSurface key={`${reset}:${width}`} width={width} height={Math.max(paperHeight, measuredHeight)} onZoom={onZoom}>
       <View onLayout={event => setMeasuredHeight(event.nativeEvent.layout.height)}
         style={{ minHeight: paperHeight, backgroundColor: '#FFFFFF', paddingTop: setup.top * scale,
-          paddingBottom: setup.bottom * scale, paddingLeft: setup.left * scale, paddingRight: setup.right * scale }}>
+          paddingBottom: setup.bottom * scale, paddingLeft: setup.left * scale, paddingRight: setup.right * scale,
+          justifyContent: setup.vertical }}>
         {page.header?.[kind]?.length ? <View style={{ position: 'absolute', top: setup.header * scale,
           left: setup.left * scale, width: inner }}>
           {page.header[kind].map((p, index) => <WordParagraphView key={index} paragraph={p} width={inner} scale={scale} />)}

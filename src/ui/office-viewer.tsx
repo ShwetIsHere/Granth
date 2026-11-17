@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { File } from 'expo-file-system';
-import type { WorkBook } from 'xlsx';
+import type { WorkBook, WorkSheet } from 'xlsx';
+import type { CsvWindow } from '../documents/csv-window';
 import type { SelectedFile } from '../documents/files';
 import { maxOfficeBytes } from '../documents/office-file';
 import type { Presentation } from '../documents/presentation';
@@ -12,7 +13,8 @@ import { PresentationViewer } from './presentation-viewer';
 import { WorkbookViewer } from './workbook-viewer';
 import { WordViewer } from './word-viewer';
 
-type Preview = { type: 'workbook'; book: WorkBook } | { type: 'presentation'; deck: Presentation } |
+type Preview = { type: 'workbook'; book: WorkBook; loadSheet: (index: number) => Promise<WorkSheet | undefined> }
+  | { type: 'csv'; csv: CsvWindow } | { type: 'presentation'; deck: Presentation } |
   { type: 'word'; sections: WordSection[] } | { type: 'error'; message: string };
 
 export function OfficeViewer({ file }: { file: SelectedFile }) {
@@ -22,6 +24,10 @@ export function OfficeViewer({ file }: { file: SelectedFile }) {
   useEffect(() => {
     let active = true;
     async function open() {
+      if (file.extension === 'csv') {
+        const { openCsv } = await import('../documents/csv-file');
+        return { type: 'csv', csv: openCsv(file.id) } as const;
+      }
       const source = new File(file.id);
       if ((file.size ?? source.size) > maxOfficeBytes) {
         return { type: 'error', message: 'In-app Office previews support files up to 32 MB.' } as const;
@@ -40,7 +46,12 @@ export function OfficeViewer({ file }: { file: SelectedFile }) {
         return { type: 'word', sections: readWord(bytes) } as const;
       }
       const { readWorkbook } = await import('../documents/workbook');
-      return { type: 'workbook', book: readWorkbook(bytes) } as const;
+      const { SheetNames } = readWorkbook(bytes, { bookSheets: true });
+      const book: WorkBook = { SheetNames, Sheets: {} };
+      return {
+        type: 'workbook', book,
+        loadSheet: async (index: number) => readWorkbook(await source.bytes(), { sheets: index }).Sheets[book.SheetNames[index]],
+      } as const;
     }
     open().then(result => {
       if (active) setPreview(result ?? { type: 'error', message: 'The file is empty.' });
@@ -50,7 +61,8 @@ export function OfficeViewer({ file }: { file: SelectedFile }) {
     return () => { active = false; };
   }, [file.extension, file.id, file.size]);
 
-  if (preview?.type === 'workbook') return <WorkbookViewer book={preview.book} uri={file.id} />;
+  if (preview?.type === 'workbook') return <WorkbookViewer book={preview.book} loadSheet={preview.loadSheet} uri={file.id} />;
+  if (preview?.type === 'csv') return <WorkbookViewer csv={preview.csv} uri={file.id} />;
   if (preview?.type === 'presentation') return <PresentationViewer deck={preview.deck} />;
   if (preview?.type === 'word') return <WordViewer sections={preview.sections} />;
   return (

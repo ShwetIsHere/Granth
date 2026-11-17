@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View, type FlatListProps } from 'react-native';
+import { ActivityIndicator, FlatList, ScrollView, Text, View, useWindowDimensions, type FlatListProps } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { pickFiles, type SelectedFile } from '../src/documents/files';
 import { categories, findCategory, type Category } from '../src/documents/formats';
@@ -24,6 +24,8 @@ export default function Browse() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const slotWidth = Math.max(1, (Math.min(width, 680) - 40) / 2);
   const picked = useLibrary(state => state.files);
   const discovered = useDiscovery(state => state.files);
   const discoveryStatus = useDiscovery(state => state.status);
@@ -53,7 +55,11 @@ export default function Browse() {
   const criteria = JSON.stringify([query, category, sort]);
   const { items, loadMore, loading, hasMore } = useResultPages(results, criteria);
   const list = useRef<FlatList<SelectedFile>>(null);
-  useEffect(() => list.current?.scrollToOffset({ offset: 0, animated: false }), [criteria]);
+  const previousCriteria = useRef(criteria);
+  useEffect(() => {
+    if (previousCriteria.current !== criteria) list.current?.scrollToOffset({ offset: 0, animated: false });
+    previousCriteria.current = criteria;
+  }, [criteria]);
 
   function openFile(id: string) {
     router.push(viewerRoute(id));
@@ -95,14 +101,16 @@ export default function Browse() {
       <FlatList
         ref={list}
         data={items}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        removeClippedSubviews={false}
         ListFooterComponent={<ResultFooter loading={loading} hasMore={hasMore} onLoadMore={loadMore} />}
         numColumns={2}
         keyExtractor={file => file.id}
         onViewableItemsChanged={updateVisibility}
         viewabilityConfig={viewability}
         renderItem={({ item }) => (
-          <View style={{ width: '50%', paddingHorizontal: 4 }}>
-            <FileGridCard file={item} visible={focused && visibleFiles.has(item.id)} onOpen={() => openFile(item.id)}
+          <View style={{ width: slotWidth, paddingHorizontal: 4 }}>
+            <FileGridCard width={Math.max(1, slotWidth - 8)} file={item} visible={focused && visibleFiles.has(item.id)} onOpen={() => openFile(item.id)}
               onDetails={() => setDetails(item)} />
           </View>
         )}
